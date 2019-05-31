@@ -104,6 +104,8 @@ class NeuralNetwork:
 
     def create_nn(self):
         # Create layers
+        # topology[l] -> number of input connection
+        # topology[l+1] -> number of neurons
         for l, layer in enumerate(self.topology[:-1]):
             self.neural_net.append(self.neural_layer(
                 self.topology[l], self.topology[l+1], self.act_fun))
@@ -112,6 +114,7 @@ class NeuralNetwork:
     def subtrain(self, X, lr=0.05, train=True):
         self.lr = lr
 
+        # out -> Output of each layer
         if type(X) == type(self.X):
             out = [(None, self.X)]
         else:
@@ -119,7 +122,9 @@ class NeuralNetwork:
 
         # Forward pass
         for l, layer in enumerate(self.neural_net):
+            # z -> Weighted sum
             z = out[-1][1] @ self.neural_net[l].W + self.neural_net[l].b
+            # a -> Activation (exit of the layer)
             a = self.neural_net[l].act_fun[0](z)
             out.append((z, a))
 
@@ -130,11 +135,13 @@ class NeuralNetwork:
 
                 z = out[l+1][0]
                 a = out[l+1][1]
-
+                # Last Layer
                 if l == len(self.neural_net) - 1:
+                    # Delta in last layer
                     deltas.insert(0, self.cost_fun[1](
                         a, self.y) * self.neural_net[l].act_fun[1](a))
                 else:
+                    # Delta of previous layer
                     deltas.insert(0, deltas[0] @ _W.T *
                                   self.neural_net[l].act_fun[1](a))
 
