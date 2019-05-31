@@ -9,7 +9,29 @@ from sklearn import datasets
 
 from sklearn.datasets import make_circles
 
-# %% Getting Iris
+
+# %% Activation Functions
+
+
+sigm = (lambda x: 1 / (1 + np.e ** (-x)),
+        lambda x: x * (1 - x))
+
+tanh = (lambda x: (2 / (1 + np.e ** (-2*x))) - 1,
+        lambda x: 1 - ((2 / (1 + np.e ** (-2*x))) - 1) ** 2)
+
+relu = (lambda x: np.maximum(0, _x),
+        lambda x: np.maximum(0, _x))
+
+_x = np.linspace(-5, 5, 100)
+plt.plot(_x, sigm[0](_x))
+
+# %% Cost Function
+
+cost_fun = (lambda Yp, Yr: np.mean((Yp - Yr) ** 2),
+            lambda Yp, Yr: (Yp - Yr))
+
+
+# %% DataSet
 iris = datasets.load_iris()
 X = iris.data[:, :3]
 y = iris.target
@@ -38,8 +60,7 @@ y = y_c
 
 print(X)
 
-
-# %% Plot
+# %% Plot Dataset
 
 x_min, x_max = X[:, 0].min() - .5, X[:, 0].max() + .5
 y_min, y_max = X[:, 1].min() - .5, X[:, 1].max() + .5
@@ -60,125 +81,94 @@ plt.yticks(())
 plt.show()
 
 
-# %% DataSet
-# n: Numbers of registers
-n = X.shape[0]
+# %% Class Neural Network
+
+
+class NeuralNetwork:
+    def __init__(self, X, y, act_fun, cost_fun, topology):
+        self.X = X
+        self.y = y
+        self.act_fun = act_fun
+        self.cost_fun = cost_fun
+        self.topology = topology
+        self.neural_net = []
+
+    class neural_layer():
+        def __init__(self, n_conn, n_neur, act_fun):
+            # Activation Function
+            self.act_fun = act_fun
+            # Bias
+            self.b = np.random.rand(1, n_neur) * 2 - 1
+            # Weights
+            self.W = np.random.rand(n_conn, n_neur) * 2 - 1
+
+    def create_nn(self):
+        # Create layers
+        for l, layer in enumerate(self.topology[:-1]):
+            self.neural_net.append(self.neural_layer(
+                self.topology[l], self.topology[l+1], self.act_fun))
+
+    # lr: learning rate it: iterations
+    def subtrain(self, X, lr=0.05, train=True):
+        self.lr = lr
+
+        if type(X) == type(self.X):
+            out = [(None, self.X)]
+        else:
+            out = [(None, X)]
+
+        # Forward pass
+        for l, layer in enumerate(self.neural_net):
+            z = out[-1][1] @ self.neural_net[l].W + self.neural_net[l].b
+            a = self.neural_net[l].act_fun[0](z)
+            out.append((z, a))
+
+        if train:
+            # Backward pass
+            deltas = []
+            for l in reversed(range(0, len(self.neural_net))):
+
+                z = out[l+1][0]
+                a = out[l+1][1]
+
+                if l == len(self.neural_net) - 1:
+                    deltas.insert(0, self.cost_fun[1](
+                        a, self.y) * self.neural_net[l].act_fun[1](a))
+                else:
+                    deltas.insert(0, deltas[0] @ _W.T *
+                                  self.neural_net[l].act_fun[1](a))
+
+                _W = self.neural_net[l].W
+
+                # Gradient descent
+                self.neural_net[l].b = self.neural_net[l].b - \
+                    np.mean(deltas[0], axis=0, keepdims=True) * self.lr
+                self.neural_net[l].W = self.neural_net[l].W - \
+                    out[l][1].T @ deltas[0] * self.lr
+
+        return out[-1][1]
+
+    # Training Network
+    def train(self, it=100000):
+        self.create_nn()
+        self.it = it
+
+        for i in range(self.it):
+            self.subtrain(self.X)
+
+    def analize(self, input):
+        return self.subtrain(input, self.lr, train=False)[0][0]
+
+# %% Train and Test
+
 
 # p: Number of caracteristics per data
 p = X.shape[1]
 
-# X, y = make_circles(n_samples=n, factor=0.5, noise=0.05)
-
-# y = y[:, np.newaxis]
-
-# plt.scatter(X[y[:, 0] == 0, 0], X[y[:, 0] == 0, 1], c="skyblue")
-# plt.scatter(X[y[:, 0] == 1, 0], X[y[:, 0] == 1, 1], c="salmon")
-# plt.axis("equal")
-# plt.show()
-
-# %% Neural Layer
-
-
-class neural_layer():
-    def __init__(self, n_conn, n_neur, act_f):
-        # Function of activation
-        self.act_f = act_f
-        # Bias
-        self.b = np.random.rand(1, n_neur) * 2 - 1
-        # Weights
-        self.W = np.random.rand(n_conn, n_neur) * 2 - 1
-
-# %% Activation Function
-
-
-# [0] F(x), [1] der(F(x))
-sigm = (lambda x: 1 / (1 + np.e ** (-x)),
-        lambda x: x * (1 - x))
-
-thip = (lambda x: (2 / (1 + np.e ** (-2*x))) - 1,
-        lambda x: 1 - ((2 / (1 + np.e ** (-2*x))) - 1) ** 2)
-
-relu = (lambda x: np.maximum(0, _x),
-        lambda x: np.maximum(0, _x))
-
-_x = np.linspace(-5, 5, 100)
-plt.plot(_x, sigm[0](_x))
-
-# %% Neural Networl
-
-
-def create_nn(topology, act_f):
-    nn = []
-    # Create layers
-    for l, layer in enumerate(topology[:-1]):
-        nn.append(neural_layer(topology[l], topology[l+1], act_f))
-    return nn
-
-
-# Cost Function (error media cuadratic)
-l2_cost = (lambda Yp, Yr: np.mean((Yp - Yr) ** 2),
-           lambda Yp, Yr: (Yp - Yr))
-
-# %% Training
-# lr: learning rate
-
-
-def train(neural_net, X, y, l2_cost, lr=0.5, train=True):
-
-    out = [(None, X)]
-    # if(train == False):
-
-    # Forward pass
-    for l, layer in enumerate(neural_net):
-
-        z = out[-1][1] @ neural_net[l].W + neural_net[l].b
-        a = neural_net[l].act_f[0](z)
-
-        out.append((z, a))
-
-    if train:
-
-        # Backward pass
-        deltas = []
-
-        for l in reversed(range(0, len(neural_net))):
-
-            z = out[l+1][0]
-            a = out[l+1][1]
-
-            if l == len(neural_net) - 1:
-                deltas.insert(0, l2_cost[1](a, y) * neural_net[l].act_f[1](a))
-            else:
-                deltas.insert(0, deltas[0] @ _W.T * neural_net[l].act_f[1](a))
-
-            _W = neural_net[l].W
-
-            # Gradient descent
-            neural_net[l].b = neural_net[l].b - \
-                np.mean(deltas[0], axis=0, keepdims=True) * lr
-            neural_net[l].W = neural_net[l].W - out[l][1].T @ deltas[0] * lr
-
-    return out[-1][1]
-
-
-topology = [p, 4, 8, 1]
-
-# neural_net = create_nn(topology, sigm)
-# train(neural_net, X, y, l2_cost, 0.5)
-# %% Trainning NN and Visualization
-
-
 topology = [p, 8, 4, 1]
 
-neural_n = create_nn(topology, sigm)
+nn = NeuralNetwork(X, y, sigm, cost_fun, topology)
 
-loss = []
+nn.train(1000)
 
-for i in range(1000):
-    # Training Network
-    pY = train(neural_n, X, y, l2_cost, lr=0.05)
-
-
-# %% Test
-print(train(neural_n, np.array(
-    [[6.7, 3.1, 4.7]]), y, l2_cost, train=False)[0][0])
+print(nn.analize([6.7, 3.1, 4.7]))
