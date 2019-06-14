@@ -35,15 +35,7 @@ cost_fun = (lambda Yp, Yr: np.mean((Yp - Yr) ** 2),
 iris = datasets.load_iris()
 X = iris.data[:, :3]
 y = iris.target
-y_c = np.empty([len(y), 1])
 
-for i in range(len(y)):
-    if(y[i] == 0):
-        y_c[i] = [1.]
-    elif(y[i] == 1):
-        y_c[i] = [0.5]
-    elif(y[i] == 2):
-        y_c[i] = [0]
 
 y_x = np.empty([len(y), 3])
 
@@ -55,10 +47,60 @@ for i in range(len(y)):
     elif(y[i] == 2):
         y_x[i] = [1, 0, 0]
 
-y = y_c
+y = y_x
 
 
-print(X)
+Xtrain = np.zeros([90, 3])
+Xtest = np.zeros([60, 3])
+
+ytrain = np.zeros([90, 3])
+ytest = np.zeros([60, 3])
+
+j = 0
+i = 0
+for x in range(len(Xtrain)):
+    if i != 0 and (i == 30 or i == 80):
+        i += 20
+    Xtrain[j] = X[i]
+    ytrain[j] = y[i]
+    j += 1
+    i += 1
+
+
+j = 0
+i = 30
+for x in range(len(Xtest)):
+    if i != 0 and (i == 50 or i == 100):
+        i += 30
+    Xtest[j] = X[i]
+    ytest[j] = y[i]
+    j += 1
+    i += 1
+
+XYtrain = np.concatenate((Xtrain, ytrain), axis=1)
+XYtest = np.concatenate((Xtest, ytest), axis=1)
+
+np.random.shuffle(XYtrain)
+np.random.shuffle(XYtest)
+
+
+for i in range(len(XYtrain)):
+    for j in range(len(XYtrain[0])):
+        if(j < 3):
+            Xtrain[i][j] = XYtrain[i][j]
+        else:
+            ytrain[i][j % 3] = XYtrain[i][j]
+
+for i in range(len(XYtest)):
+    for j in range(len(XYtest[0])):
+        if(j < 3):
+            Xtest[i][j] = XYtest[i][j]
+        else:
+            ytest[i][j % 3] = XYtest[i][j]
+
+print(Xtest)
+print(ytest)
+
 
 # %% Plot Dataset
 
@@ -115,7 +157,7 @@ class NeuralNetwork:
         self.lr = lr
 
         # out -> Output of each layer
-        if type(X) == type(self.X):
+        if train:
             out = [(None, self.X)]
         else:
             out = [(None, X)]
@@ -156,26 +198,57 @@ class NeuralNetwork:
         return out[-1][1]
 
     # Training Network
-    def train(self, it=100000):
+    def train(self, it=100000, lr=0.5):
         self.create_nn()
         self.it = it
+        loss = []
 
         for i in range(self.it):
-            self.subtrain(self.X)
+            py = self.subtrain(self.X, lr)
+            loss.append(cost_fun[0](py, self.y))
+            if i % 100 == 0:
+                plt.plot(range(len(loss)), loss)
+                plt.show()
+                clear_output()
 
     def analize(self, input):
-        return self.subtrain(input, self.lr, train=False)[0][0]
+        return self.subtrain(input, self.lr, train=False)[-1]
 
-# %% Train and Test
+# %% Train
 
 
 # p: Number of caracteristics per data
 p = X.shape[1]
 
-topology = [p, 8, 4, 1]
+topology = [p, 8, 3]
 
-nn = NeuralNetwork(X, y, sigm, cost_fun, topology)
+nn = NeuralNetwork(Xtrain, ytrain, sigm, cost_fun, topology)
 
-nn.train(1000)
+nn.train(2000, 0.05)
 
-print(nn.analize([6.7, 3.1, 4.7]))
+
+# %% Accurasy
+
+# print(ytest[11])
+# print(nn.analize(Xtest[11]))
+
+yres = np.zeros_like(Xtest)
+
+for x in range(len(Xtest)):
+    yres[x] = nn.analize(Xtest[x])
+
+accurasy = 0
+
+for i in range(len(yres)):
+    for j in range(len(yres[0])):
+        if yres[i][j] > 0.5:
+            yres[i][j] = 1
+        else:
+            yres[i][j] = 0
+    if np.array_equal(yres[i], ytest[i]):
+        accurasy += 1
+
+accurasy = accurasy / len(ytest) * 100
+print(accurasy)
+
+# %%
